@@ -29,15 +29,38 @@ module Capistrano
       
     end
 
+    # See also: https://github.com/capistrano/capistrano/blob/master/lib/capistrano/task_definition.rb
+    # TODO: handle case where find_callback() searches for a task without specifying its namespace.
+    class DummyTask
+      def new fully_qualified_name
+        @name = fully_qualified_name
+      end
+      def fully_qualified_name
+        @name
+      end
+    end
+
     module Helpers
+      # TODO: consider renaming this to find_callbacks() as it can return multiple callbacks.
       def find_callback(configuration, on, task)
+        original_task = task.dup
         if task.kind_of?(String)
+          # This works if the task you are looking for was defined in the configuration you are testing.
+          # This will NOT work if you try: find_callback @conf, :after, "deploy:setup"
+          #   and the code you are testing has specified: after "deploy:setup", "deploy:extras"
+          #   and "deploy:extras" is a task you have defined in your code but "deploy:setup" is simply
+          #   the task which is already defined by https://github.com/capistrano/capistrano/blob/master/lib/capistrano/recipes/deploy.rb
           task = configuration.find_task(task)
+          # Workaround is to create a dummy task for the edge cases mentioned above.
+          task = DummyTask.new original_task if task.nil?
         end
+
+        return nil if task.nil? # otherwise applies_to?() below always returns true, producing false positives.
 
         callbacks = configuration.callbacks[on]
 
         callbacks && callbacks.select do |task_callback|
+          # https://github.com/capistrano/capistrano/blob/master/lib/capistrano/callback.rb
           task_callback.applies_to?(task) || task_callback.source == task.fully_qualified_name
         end
       end
