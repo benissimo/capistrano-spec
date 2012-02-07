@@ -11,6 +11,11 @@ You know the drill:
 And require it in your +spec/spec_helper.rb+:
 
   require 'capistrano-spec'
+  RSpec.configure do |config|
+    config.include Capistrano::Spec::Matchers
+    config.include Capistrano::Spec::Helpers
+  end
+
 
 == Designing your capistrano extension
 
